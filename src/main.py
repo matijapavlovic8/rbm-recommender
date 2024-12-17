@@ -31,7 +31,7 @@ def main():
 
     plot_training_loss(losses, title="RBM Training Reconstruction Loss", xlabel="Epoch", ylabel="Reconstruction Loss")
 
-    print(evaluate_rbm(rbm, test_data))
+    print(f"Validation loss: {evaluate_rbm(rbm, test_data)}")
 
 
 if __name__ == "__main__":
