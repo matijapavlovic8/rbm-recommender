@@ -6,9 +6,9 @@ class RBM(nn.Module):
     def __init__(self, num_visible, num_hidden, device='cpu'):
         super(RBM, self).__init__()
         self.device = device
-        self.W = nn.Parameter(torch.randn(num_hidden, num_visible))
-        self.h_bias = nn.Parameter(torch.zeros(num_hidden))
-        self.v_bias = nn.Parameter(torch.zeros(num_visible))
+        self.W = torch.randn(num_hidden, num_visible).to(device)
+        self.h_bias = torch.zeros(num_hidden).to(device)
+        self.v_bias = torch.zeros(num_visible).to(device)
 
         self.to(device)
 

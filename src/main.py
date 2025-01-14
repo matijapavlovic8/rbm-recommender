@@ -2,7 +2,7 @@ from src.eval import evaluate_rbm
 from src.data_preprocessing import load_data, preprocess_data
 from src.rbm_model import RBM
 from src.training import train_rbm
-from src.plot_utils import plot_training_loss
+from plot_utils import plot_training_loss
 from sklearn.model_selection import train_test_split
 import torch
 
@@ -14,7 +14,6 @@ def main():
 
 
     interaction_tensor = torch.tensor(interaction_matrix.values, dtype=torch.float32)
-    interaction_tensor = (interaction_tensor - interaction_tensor.mean()) / interaction_tensor.std()
 
     train_data, test_data = train_test_split(interaction_tensor.numpy(), test_size=0.2, random_state=42)
 
@@ -24,14 +23,16 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     num_visible = interaction_tensor.shape[1]
-    num_hidden = 100
+    num_hidden = 400
     rbm = RBM(num_visible=num_visible, num_hidden=num_hidden, device=device)
 
-    losses = train_rbm(rbm, train_data, epochs=20, learning_rate=0.01, k=10, batch_size=32)
+    losses = train_rbm(rbm, train_data, epochs=40, learning_rate=0.01, k=30, batch_size=32)
 
     plot_training_loss(losses, title="RBM Training Reconstruction Loss", xlabel="Epoch", ylabel="Reconstruction Loss")
 
-    print(f"Validation loss: {evaluate_rbm(rbm, test_data)}")
+    loss, acc = evaluate_rbm(rbm, test_data, device)
+    print(f"Validation loss: {loss}")
+    print(f"Validation accuracy: {acc*100}%")
 
 
 if __name__ == "__main__":
