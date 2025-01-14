@@ -3,6 +3,18 @@ import pandas as pd
 
 
 def recommend(watched, probs, n):
+    """
+    Function that gets an binary input tensor, where 1 represents the
+    index of a liked/watched movie, and 0 otherwise. 
+    Returns a tensor size len_movies, where it recomends n movies
+    with indices 1 on recommended movies, and 0 elsewhere.
+
+    Arguments:
+        - watched: binary input tensor of watched movies
+        - probs: probability output of backward pass of RBM,
+        containing model probabilities for every movie.
+        - n: number of recommendations
+    """
     probs[watched == 1] = 0
     _, indices = torch.topk(probs, n)
     result_tensor = torch.zeros_like(probs)
@@ -11,6 +23,15 @@ def recommend(watched, probs, n):
 
 
 def movie_from_tensor(tensor, movies):
+    """
+    Function that prints out movie genre and name 
+    for every movie inside binary tensor.
+    Movies whose indexes contain 1 in tensor will be printed out.
+
+    Arguments:
+        - tensor: binary tensor with movies
+        - movies: dataframe containing movie info
+    """
     indices = torch.nonzero(tensor == 1).squeeze()
     adjusted_indices = indices + 1  
 

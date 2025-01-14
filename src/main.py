@@ -2,7 +2,7 @@ from src.eval import evaluate_rbm
 from src.data_preprocessing import load_data, preprocess_data
 from src.rbm_model import RBM
 from src.training import train_rbm
-from plot_utils import plot_training_loss
+from src.plot_utils import plot_training_loss
 from sklearn.model_selection import train_test_split
 import torch
 

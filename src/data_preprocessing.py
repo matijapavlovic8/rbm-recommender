@@ -15,6 +15,7 @@ def preprocess_data(data):
 
 
 def load_movies(file_path):
+    "Load movie details into dataframe."
     column_names = [ 'movie_id', 'movie_title', 'release_date', 'video_release_date', 'IMDb_URL', 'unknown', 'Action', 'Adventure', 'Animation', "Children's", 'Comedy', 'Crime', 'Documentary', 'Drama', 'Fantasy', 'Film-Noir', 'Horror', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'War', 'Western' ] 
     movies = pd.read_csv( file_path, sep='|', header=None, names=column_names, encoding='ISO-8859-1' )
     movies = movies.drop(columns = ["release_date", "video_release_date", "IMDb_URL", "unknown"])

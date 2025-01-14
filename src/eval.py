@@ -4,7 +4,8 @@ import torch.nn.functional as F
 
 def evaluate_rbm(rbm, test_data, device):
     """
-    Evaluate the RBM on the test set by calculating the reconstruction loss.
+    Evaluate the RBM on the test set by calculating the
+    reconstruction loss and accuracy.
 
     Args:
         rbm: Trained RBM instance.
@@ -12,6 +13,7 @@ def evaluate_rbm(rbm, test_data, device):
 
     Returns:
         test_loss: Average reconstruction loss on the test set.
+        acc: average accuracy of reconstruction on the test set.
     """
     test_loss = 0.0
     correct = 0
