@@ -50,7 +50,6 @@ class DBN(nn.Module):
         self.device = device
         self.rbm1 = rbm1
         self.rbm2 = RBM(rbm1.num_hidden, num_hidden2, device)
-        self.rbm2.v_bias = self.rbm1.h_bias.clone()
 
         self.to(device)
 
@@ -59,4 +58,3 @@ class DBN(nn.Module):
         h_prob2, h_sample2 = self.rbm2.forward(h_sample1)
 
         return h_prob1, h_sample1, h_prob2, h_sample2
-

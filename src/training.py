@@ -90,10 +90,8 @@ def train_dbn(dbn, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
             for _ in range(k):
                 h_prob1_down, h_sample1_down = dbn.rbm2.backward(h_sample2_down)
                 h_prob2_down, h_sample2_down = dbn.rbm2.forward(h_sample1_down)
-            
-            _, v_sample_down = dbn.rbm1.backward(h_sample1_down)
 
-            loss = F.mse_loss(v_sample_down, batch)
+            loss = F.mse_loss(h_sample1_up,h_sample1_down)
             epoch_loss += loss.item()
 
             positive_grad = torch.matmul(h_sample2_up.t(), h_sample1_up)
@@ -102,7 +100,6 @@ def train_dbn(dbn, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
             dw = (positive_grad - negative_grad) / batch.size(0)
             dbn.rbm2.W = dbn.rbm2.W + learning_rate * dw
             dbn.rbm2.v_bias = dbn.rbm2.v_bias + learning_rate * (torch.mean(h_sample1_up - h_sample1_down, dim=0))
-            dbn.rbm1.h_bias = dbn.rbm2.v_bias.clone()
             dbn.rbm2.h_bias = dbn.rbm2.h_bias + learning_rate * (torch.mean(h_sample2_up - h_sample2_down, dim=0))
 
             progress_bar.set_postfix({'Loss': loss.item()})
