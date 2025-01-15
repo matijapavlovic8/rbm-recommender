@@ -1,6 +1,4 @@
 import torch
-import pandas as pd
-
 
 def recommend(watched, probs, n):
     """
