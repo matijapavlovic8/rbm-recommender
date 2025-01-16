@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-import torch.nn as nn
 import torch.utils.data
 from tqdm import tqdm
 
@@ -8,7 +7,6 @@ from tqdm import tqdm
 def train_rbm(rbm, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
     """
     Training loop with mini-batching, TQDM progress tracking
-
     Args:
         rbm: RBM model
         data: Training tensor
@@ -58,11 +56,9 @@ def train_rbm(rbm, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
     return losses
 
 
-
 def train_dbn(dbn, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
     """
     Training loop with mini-batching, TQDM progress tracking
-
     Args:
         dbn: DBN model
         data: Training tensor
@@ -87,11 +83,12 @@ def train_dbn(dbn, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
 
             h_prob1_up, h_sample1_up, h_prob2_up, h_sample2_up = dbn.forward(batch)
             h_sample2_down = h_sample2_up.clone()
+
             for _ in range(k):
                 h_prob1_down, h_sample1_down = dbn.rbm2.backward(h_sample2_down)
                 h_prob2_down, h_sample2_down = dbn.rbm2.forward(h_sample1_down)
 
-            loss = F.mse_loss(h_sample1_up,h_sample1_down)
+            loss = F.mse_loss(h_sample1_up, h_sample1_down)
             epoch_loss += loss.item()
 
             positive_grad = torch.matmul(h_sample2_up.t(), h_sample1_up)

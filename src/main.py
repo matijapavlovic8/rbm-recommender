@@ -18,23 +18,22 @@ def main():
 
     train_data = torch.tensor(train_data, dtype=torch.float32)
     test_data = torch.tensor(test_data, dtype=torch.float32)
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     num_visible = interaction_tensor.shape[1]
     num_hidden = 400
 
     # RBM
-    rbm = RBM(num_visible=num_visible, num_hidden=num_hidden, device=device)
+    rbm = RBM(num_visible=3364, num_hidden=400, device=device)
 
     losses = train_rbm(rbm, train_data, epochs=50, learning_rate=0.01, batch_size=32)
 
-    with open('../models/rbm.th', 'wb') as f:
+    with open('../models/rbm2.th', 'wb') as f:
         torch.save({
             'rbm_w': rbm.W,
             'rbm_v': rbm.v_bias,
             'rbm_h': rbm.h_bias,
-           'num_hidden': num_hidden,
+            'num_hidden': num_hidden,
             'num_visible': num_visible
         }, f)
 
@@ -42,18 +41,17 @@ def main():
 
     loss, acc = evaluate_rbm(rbm, test_data, device)
     print(f"Validation loss: {loss:.4f}")
-    print(f"Validation accuracy: {acc*100:.2f}%")
+    print(f"Validation accuracy: {acc * 100:.2f}%")
 
-    
     # DBN
-    rbm_for_dbn = RBM.load_from_files("../models/rbm.th", device=device)
-    
+    rbm_for_dbn = RBM.load_from_files("../models/rbm2.th", device=device)
+
     num_hidden2 = 200
     dbn = DBN(rbm_for_dbn, num_hidden2, device=device)
 
     losses = train_dbn(dbn, train_data, epochs=50, learning_rate=0.01, batch_size=32)
-    
-    with open('../models/dbn.th', 'wb') as f:
+
+    with open('../models/dbn2.th', 'wb') as f:
         torch.save({
             'rbm1_w': dbn.rbm1.W,
             'rbm1_v': dbn.rbm1.v_bias,
@@ -69,8 +67,7 @@ def main():
 
     loss, acc = evaluate_dbn(dbn, test_data, device)
     print(f"Validation loss: {loss:.4f}")
-    print(f"Validation accuracy: {acc*100:.2f}%")
-
+    print(f"Validation accuracy: {acc * 100:.2f}%")
 
 
 if __name__ == "__main__":
