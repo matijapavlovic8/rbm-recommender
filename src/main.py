@@ -76,9 +76,14 @@ def main():
 
 
     hide_fraction = 0.2  # Hide 20% of rated movies
-    accuracy_rbm, accuracy_dbn = test_recommendation_ability(rbm, dbn, test_data, device, hide_fraction=hide_fraction, k=10)
-    print(f"RBM Recommendation accuracy: {accuracy_rbm*100:.2f}%")
-    print(f"DBN Recommendation accuracy: {accuracy_dbn*100:.2f}%")
+    acc_rbm = 0
+    acc_dbn = 0
+    for i in range(10):
+        accuracy_rbm, accuracy_dbn = test_recommendation_ability(rbm, dbn, test_data, device, hide_fraction=hide_fraction, k=10)
+        acc_rbm += accuracy_rbm
+        acc_dbn += accuracy_dbn
+    print(f"RBM Recommendation accuracy: {acc_rbm/10*100:.2f}%")
+    print(f"DBN Recommendation accuracy: {acc_dbn/10*100:.2f}%")
 
     # movies = load_movies("data\\ml-100k\\u.item")
     # random_user = random.randint(1, len(test_data))

@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from src.utils import quantize
 
-
 class RBM(nn.Module):
     def __init__(self, num_visible, num_hidden, device='cpu'):
         super(RBM, self).__init__()
@@ -24,33 +23,39 @@ class RBM(nn.Module):
 
         return rbm
 
-    def forward(self, v):
+    def forward(self, v, quantize_flag=True):
         """Sample hidden units given visible units."""
-        v = v.float().to(self.device)
+        v0 = v.clone().detach()
+        if quantize_flag:
+            v0 = quantize(v0)
 
-        h_linear = torch.matmul(v, self.W.t()) + self.h_bias
+        h_linear = torch.matmul(v0, self.W.t()) + self.h_bias
         h_prob = torch.sigmoid(h_linear)
-        h_sample = torch.bernoulli(h_prob)
+        h_sample = (h_prob >= 0.5).float()
 
         return h_prob, h_sample
 
-    def backward(self, h):
+    def backward(self, h, quantize_flag=True):
         """Sample visible units given hidden units."""
 
-        h = h.float().to(self.device)
+        h0 = h.clone().detach()
 
-        v_linear = torch.matmul(h, self.W) + self.v_bias
+        v_linear = torch.matmul(h0, self.W) + self.v_bias
         v_prob = torch.sigmoid(v_linear)
-        v_sample = torch.bernoulli(v_prob)
+        if quantize_flag:
+            v_sample = quantize(v_prob)
+        else:
+            v_sample = (v_prob >= 0.5).float()
 
         return v_prob, v_sample
     
     def reconstruct(self, v, k=10):
-        h_prob_pos, h_sample_pos = self.forward(v)
+        v0 = v.clone().detach()
+        h_prob_pos, h_sample_pos = self.forward(v0)
         h_sample_current = h_sample_pos
         for _ in range(k):
             v_prob_neg, v_sample_neg = self.backward(h_sample_current)
-            h_prob_neg, h_sample_current = self.forward(quantize(v_prob_neg))
+            h_prob_neg, h_sample_current = self.forward(v_prob_neg)
         
         return v_prob_neg, v_sample_neg
 
@@ -64,18 +69,23 @@ class DBN(nn.Module):
         self.to(device)
 
     def forward(self, v):
-        h_prob1, h_sample1 = self.rbm1.forward(v)
-        h_prob2, h_sample2 = self.rbm2.forward(h_sample1)
+        v0 = v.clone().detach()
+        h_prob1, h_sample1 = self.rbm1.forward(v0)
+        h_prob2, h_sample2 = self.rbm2.forward(h_sample1, quantize_flag=False)
 
         return h_prob1, h_sample1, h_prob2, h_sample2
     
     def reconstruct(self, v, k=10):
-        h_prob1_up, h_sample1_up, h_prob2_up, h_sample2_up = self.forward(v)
+        v0 = v.clone().detach()
+        h_prob1_up, h_sample1_up, h_prob2_up, h_sample2_up = self.forward(v0)
         h_sample2_down = h_sample2_up.clone()
         for _ in range(k):
-            h_prob1_down, h_sample1_down = self.rbm2.backward(h_sample2_down)
-            h_prob2_down, h_sample2_down = self.rbm2.forward(h_sample1_down)
+            h_prob1_down, h_sample1_down = self.rbm2.backward(h_sample2_down, quantize_flag=False)
+            h_prob2_down, h_sample2_down = self.rbm2.forward(h_sample1_down, quantize_flag=False)
         
+        h_prob1_down = torch.sigmoid(torch.matmul(h_sample2_down, self.rbm2.W) + self.rbm1.h_bias)
+        h_sample1_down = (h_sample1_down>=0.5).float()  
+
         v_prob_down, v_sample_down = self.rbm1.backward(h_sample1_down)
 
         return v_prob_down, v_sample_down

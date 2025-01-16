@@ -1,9 +1,10 @@
 import torch
 import torch.nn.functional as F
 from src.utils import quantize
+from src.models import RBM, DBN
 
 
-def evaluate_rbm(rbm, test_data, device, k=10):
+def evaluate_rbm(rbm: RBM, test_data, device, k=10):
     """
     Evaluate the RBM on the test set by calculating the
     reconstruction loss and accuracy.
@@ -22,7 +23,7 @@ def evaluate_rbm(rbm, test_data, device, k=10):
     with torch.no_grad():
         for user_vector in test_data:
             user_vector = user_vector.float().to(device)
-            v0 = user_vector.clone().to(device)
+            v0 = user_vector.clone().detach().to(device)
             
             v_prob_neg, v_sample_neg = rbm.reconstruct(v0, k=k)
             
@@ -41,7 +42,7 @@ def evaluate_rbm(rbm, test_data, device, k=10):
 
 
 
-def evaluate_dbn(dbn, test_data, device, k=10):
+def evaluate_dbn(dbn: DBN, test_data, device, k=10):
     """
     Evaluate the DBN on the test set by calculating the
     reconstruction loss and accuracy.
@@ -60,7 +61,7 @@ def evaluate_dbn(dbn, test_data, device, k=10):
     with torch.no_grad():
         for user_vector in test_data:
             user_vector = user_vector.float().to(device)
-            v0 = user_vector.clone().to(device)
+            v0 = user_vector.clone().detach().to(device)
             
             v_prob_down, v_sample_down = dbn.reconstruct(v0, k=k)
 
