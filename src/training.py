@@ -1,13 +1,13 @@
 import torch
 import torch.nn.functional as F
-import torch.nn as nn
 import torch.utils.data
 from tqdm import tqdm
 from src.utils import quantize
+from src.models import RBM, DBN
 
 
 
-def train_rbm(rbm, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
+def train_rbm(rbm: RBM, data, epochs=20, learning_rate=0.001, k=1, batch_size=32):
     """
     Training loop with mini-batching, focusing updates only on rated movies.
 
@@ -36,18 +36,18 @@ def train_rbm(rbm, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
             h_sample_current = h_sample_pos
             for _ in range(k):
                 v_prob_neg, v_sample_neg = rbm.backward(h_sample_current)
-                h_prob_neg, h_sample_current = rbm.forward(quantize(v_prob_neg))
+                h_prob_neg, h_sample_current = rbm.forward(v_prob_neg)
 
             v_prob_neg_q = quantize(v_prob_neg)
             loss = F.mse_loss(batch, v_prob_neg_q)
             epoch_loss += loss.item()
 
             positive_grad = torch.matmul(h_sample_pos.t(), batch)
-            negative_grad = torch.matmul(h_sample_current.t(), quantize(v_prob_neg))
+            negative_grad = torch.matmul(h_sample_current.t(), v_prob_neg_q)
 
             dw = (positive_grad - negative_grad) / batch.size(0)
             rbm.W = rbm.W + learning_rate * dw
-            rbm.v_bias = rbm.v_bias + learning_rate * torch.mean(batch - quantize(v_prob_neg), dim=0)
+            rbm.v_bias = rbm.v_bias + learning_rate * torch.mean(batch - v_prob_neg_q, dim=0)
             rbm.h_bias = rbm.h_bias + learning_rate * torch.mean(h_sample_pos - h_sample_current, dim=0)
 
             progress_bar.set_postfix({'Loss': loss.item()})
@@ -61,7 +61,7 @@ def train_rbm(rbm, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
 
 
 
-def train_dbn(dbn, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
+def train_dbn(dbn: DBN, data, epochs=20, learning_rate=0.001, k=1, batch_size=32):
     """
     Training loop with mini-batching, TQDM progress tracking
 
@@ -82,7 +82,7 @@ def train_dbn(dbn, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
 
     for epoch in range(epochs):
         epoch_loss = 0.0
-        progress_bar = tqdm(data_loader, desc=f"Epoch {epoch}/{epochs}", leave=True)
+        progress_bar = tqdm(data_loader, desc=f"Epoch {epoch+1}/{epochs}", leave=True)
 
         for batch in progress_bar:
             batch = batch.to(device)
@@ -90,8 +90,8 @@ def train_dbn(dbn, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
             h_prob1_up, h_sample1_up, h_prob2_up, h_sample2_up = dbn.forward(batch)
             h_sample2_down = h_sample2_up.clone()
             for _ in range(k):
-                h_prob1_down, h_sample1_down = dbn.rbm2.backward(h_sample2_down)
-                h_prob2_down, h_sample2_down = dbn.rbm2.forward(h_sample1_down)
+                h_prob1_down, h_sample1_down = dbn.rbm2.backward(h_sample2_down, quantize_flag=False)
+                h_prob2_down, h_sample2_down = dbn.rbm2.forward(h_sample1_down, quantize_flag=False)
 
             loss = F.mse_loss(h_sample1_up,h_sample1_down)
             epoch_loss += loss.item()
@@ -103,7 +103,6 @@ def train_dbn(dbn, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
             dbn.rbm2.W = dbn.rbm2.W + learning_rate * dw
             dbn.rbm2.v_bias = dbn.rbm2.v_bias + learning_rate * (torch.mean(h_sample1_up - h_sample1_down, dim=0))
             dbn.rbm2.h_bias = dbn.rbm2.h_bias + learning_rate * (torch.mean(h_sample2_up - h_sample2_down, dim=0))
-            dbn.rbm1.h_bias = dbn.rbm2.v_bias.clone()
 
             progress_bar.set_postfix({'Loss': loss.item()})
 

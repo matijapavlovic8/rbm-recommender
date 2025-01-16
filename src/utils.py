@@ -62,7 +62,7 @@ def movie_from_tensor(tensor, movies):
 
 
 
-def test_recommendation_ability(rbm, dbn, data, device, hide_fraction=0.2, k=10):
+def test_recommendation_ability(rbm, dbn, data, device, hide_fraction=0.2, k=1):
     """
     Test the RBM's ability to recommend movies by hiding some ratings
     and checking if the model predicts them as high-probability recommendations.
