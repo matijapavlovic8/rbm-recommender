@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from src.utils import quantize
 
 
 class RBM(nn.Module):
@@ -43,6 +44,15 @@ class RBM(nn.Module):
         v_sample = torch.bernoulli(v_prob)
 
         return v_prob, v_sample
+    
+    def reconstruct(self, v, k=10):
+        h_prob_pos, h_sample_pos = self.forward(v)
+        h_sample_current = h_sample_pos
+        for _ in range(k):
+            v_prob_neg, v_sample_neg = self.backward(h_sample_current)
+            h_prob_neg, h_sample_current = self.forward(quantize(v_prob_neg))
+        
+        return v_prob_neg, v_sample_neg
 
 class DBN(nn.Module):
     def __init__(self, rbm1: RBM, num_hidden2, device='cpu'):
@@ -58,3 +68,14 @@ class DBN(nn.Module):
         h_prob2, h_sample2 = self.rbm2.forward(h_sample1)
 
         return h_prob1, h_sample1, h_prob2, h_sample2
+    
+    def reconstruct(self, v, k=10):
+        h_prob1_up, h_sample1_up, h_prob2_up, h_sample2_up = self.forward(v)
+        h_sample2_down = h_sample2_up.clone()
+        for _ in range(k):
+            h_prob1_down, h_sample1_down = self.rbm2.backward(h_sample2_down)
+            h_prob2_down, h_sample2_down = self.rbm2.forward(h_sample1_down)
+        
+        v_prob_down, v_sample_down = self.rbm1.backward(h_sample1_down)
+
+        return v_prob_down, v_sample_down

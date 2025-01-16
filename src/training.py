@@ -6,6 +6,7 @@ from tqdm import tqdm
 from src.utils import quantize
 
 
+
 def train_rbm(rbm, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
     """
     Training loop with mini-batching, focusing updates only on rated movies.
@@ -35,18 +36,18 @@ def train_rbm(rbm, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
             h_sample_current = h_sample_pos
             for _ in range(k):
                 v_prob_neg, v_sample_neg = rbm.backward(h_sample_current)
-                h_prob_neg, h_sample_current = rbm.forward(v_sample_neg)
+                h_prob_neg, h_sample_current = rbm.forward(quantize(v_prob_neg))
 
             v_prob_neg_q = quantize(v_prob_neg)
             loss = F.mse_loss(batch, v_prob_neg_q)
             epoch_loss += loss.item()
 
             positive_grad = torch.matmul(h_sample_pos.t(), batch)
-            negative_grad = torch.matmul(h_sample_current.t(), v_sample_neg)  # probaj sa prob ili quant
+            negative_grad = torch.matmul(h_sample_current.t(), quantize(v_prob_neg))
 
             dw = (positive_grad - negative_grad) / batch.size(0)
             rbm.W = rbm.W + learning_rate * dw
-            rbm.v_bias = rbm.v_bias + learning_rate * torch.mean(batch - v_sample_neg, dim=0)   # probaj sa prob ili quant
+            rbm.v_bias = rbm.v_bias + learning_rate * torch.mean(batch - quantize(v_prob_neg), dim=0)
             rbm.h_bias = rbm.h_bias + learning_rate * torch.mean(h_sample_pos - h_sample_current, dim=0)
 
             progress_bar.set_postfix({'Loss': loss.item()})
@@ -102,6 +103,7 @@ def train_dbn(dbn, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
             dbn.rbm2.W = dbn.rbm2.W + learning_rate * dw
             dbn.rbm2.v_bias = dbn.rbm2.v_bias + learning_rate * (torch.mean(h_sample1_up - h_sample1_down, dim=0))
             dbn.rbm2.h_bias = dbn.rbm2.h_bias + learning_rate * (torch.mean(h_sample2_up - h_sample2_down, dim=0))
+            dbn.rbm1.h_bias = dbn.rbm2.v_bias.clone()
 
             progress_bar.set_postfix({'Loss': loss.item()})
 

@@ -1,6 +1,4 @@
 import torch
-from src.models import RBM, DBN
-
 
 def recommend(watched, probs, n):
     """
@@ -47,7 +45,9 @@ def movie_from_tensor(tensor, movies):
         - movies: dataframe containing movie info
     """
     indices = torch.nonzero(tensor >= 0.6).squeeze()
-    print(len(indices))
+    if len(indices) == 0:
+        print("No recommendations.")
+        return
 
     movie_ids = indices+1
 
@@ -62,7 +62,7 @@ def movie_from_tensor(tensor, movies):
 
 
 
-def test_recommendation_ability(model, data, device, hide_fraction=0.2, k=10):
+def test_recommendation_ability(rbm, dbn, data, device, hide_fraction=0.2, k=10):
     """
     Test the RBM's ability to recommend movies by hiding some ratings
     and checking if the model predicts them as high-probability recommendations.
@@ -78,8 +78,10 @@ def test_recommendation_ability(model, data, device, hide_fraction=0.2, k=10):
     """
     device = torch.device(device)
     data = data.to(device)
-    correct_top_n = 0
-    total_top_n = 0
+    correct_top_n_rbm = 0
+    total_top_n_rbm = 0
+    correct_top_n_dbn = 0
+    total_top_n_dbn = 0
 
     with torch.no_grad():
         for user_vector in data:
@@ -96,43 +98,42 @@ def test_recommendation_ability(model, data, device, hide_fraction=0.2, k=10):
             test_vector = user_vector.clone()
             test_vector[hidden_indices] = 0  # Hide selected ratings
 
-            if isinstance(model, RBM):
-                _, h_sample = model.forward(test_vector)
-                for _ in range(k):
-                    v_prob, _ = model.backward(h_sample)
-                    _, h_sample = model.forward(v_prob)
-                
-                predictions = quantize(v_prob.clone())
-            
-            elif isinstance(model, DBN):
-                h_prob1_up, h_sample1_up, h_prob2_up, h_sample2_up = model.forward(test_vector)
-                h_sample2_down = h_sample2_up.clone()
-                for _ in range(k):
-                    h_prob1_down, h_sample1_down = model.rbm2.backward(h_sample2_down)
-                    h_prob2_down, h_sample2_down = model.rbm2.forward(h_sample1_down)
-                
-                v_prob_down, v_sample_down = model.rbm1.backward(h_sample1_down)
-
-                predictions = quantize(v_prob_down.clone())
-
             filtered_watched = torch.zeros_like(user_vector)
             for i in range(len(filtered_watched)):
                 if i in rated_indices and i not in hidden_indices:
                     filtered_watched[i] = 1
 
             top_n = num_to_hide
+
+            v_prob_down, v_sample_down = rbm.reconstruct(test_vector, k=k)
+            predictions = quantize(v_prob_down.clone())
+
             recommendations = recommend(filtered_watched, predictions, top_n)
             recomm_indices = torch.where(recommendations == 1)[0]
 
             for r in recomm_indices:
                 if r in hidden_indices:
                     if user_vector[r] >= 0.6:
-                        correct_top_n += 1
-                    total_top_n += 1
+                        correct_top_n_rbm += 1
+                    total_top_n_rbm += 1
+
+                    
+            v_prob_down, v_sample_down = dbn.reconstruct(test_vector, k=k)
+            predictions = quantize(v_prob_down.clone())
+
+            recommendations = recommend(filtered_watched, predictions, top_n)
+            recomm_indices = torch.where(recommendations == 1)[0]
+
+            for r in recomm_indices:
+                if r in hidden_indices:
+                    if user_vector[r] >= 0.6:
+                        correct_top_n_dbn += 1
+                    total_top_n_dbn += 1
 
 
-    accuracy = correct_top_n / total_top_n if total_top_n > 0 else 0
-    return accuracy
+    accuracy_rbm = correct_top_n_rbm / total_top_n_rbm if total_top_n_rbm > 0 else 0
+    accuracy_dbn = correct_top_n_dbn / total_top_n_dbn if total_top_n_dbn > 0 else 0
+    return accuracy_rbm, accuracy_dbn
            
 
 
@@ -151,3 +152,20 @@ def quantize(v_prob, valid_levels=[0, 0.2, 0.4, 0.6, 0.8, 1]):
                 quantized,
             )
     return quantized
+
+
+
+def set_global_seed(seed):
+    import random
+    import numpy as np
+    import torch
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    # Enable deterministic behavior in PyTorch (if required)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
