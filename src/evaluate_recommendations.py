@@ -5,29 +5,27 @@ from src.data_preprocessing import load_data, preprocess_data
 from src.rbm_model import DBN, RBM
 
 
-# Evaluating the recommendations for true and false positives
 def evaluate_recommendations(model, user_idx, original_data, masked_data, top_k=10):
-    # Ensure the input data has the correct shape before passing it to the model
-    masked_data = masked_data.to(torch.float32)  # Ensure the correct type (if not already)
+    masked_data = masked_data.to(torch.float32)
 
     with torch.no_grad():
-        predictions = model(masked_data)
+        _, predictions = model(masked_data)
 
-    # Get the liked and disliked movies for the user
-    original_liked = set(np.where(original_data[user_idx, 1].numpy() == 1)[0])  # Liked movies (second bit)
-    original_disliked = set(np.where(original_data[user_idx, 1].numpy() == 0)[0])  # Disliked movies
+    if user_idx >= predictions.shape[0]:
+        raise IndexError(f"user_idx {user_idx} is out of bounds for predictions of shape {predictions.shape}")
 
-    # Get recommended movies (top K from predictions)
+    original_liked = set(np.where((original_data[user_idx, ::2] == 1) & (original_data[user_idx, 1::2] == 1))[0])
+    original_disliked = set(np.where((original_data[user_idx, ::2] == 1) & (original_data[user_idx, 1::2] == 0))[0])
+
     recommended_movies = torch.topk(predictions[user_idx], top_k).indices.cpu().numpy()
     recommended_set = set(map(int, recommended_movies.flatten()))
 
-    # Count true positives: recommended and liked by user
     true_positives = original_liked & recommended_set
-
-    # Count false positives: recommended but disliked by user
     false_positives = original_disliked & recommended_set
 
     return true_positives, false_positives
+
+
 
 
 # Main function to execute the steps
@@ -56,7 +54,24 @@ def main():
 
     rbm.eval()
 
-    # Load the pre-trained DBN model (stacked RBMs)
+    np.random.seed(42)
+    user_idx = np.random.choice(len(test_data))
+
+    masked_data = test_data.clone()
+    rated_movies = np.where(test_data[user_idx, 0::2].numpy() == 1)[0]
+
+    num_to_mask = len(rated_movies) // 2
+    masked_movies = np.random.choice(rated_movies, num_to_mask, replace=False)
+
+    for movie_idx in masked_movies:
+        masked_data[user_idx, movie_idx * 2:movie_idx * 2 + 2] = 0
+
+
+    print("Evaluating RBM:")
+    rbm_true_positives, rbm_false_positives = evaluate_recommendations(rbm, user_idx, test_data, masked_data, top_k=10)
+    print(f"RBM True Positives: {rbm_true_positives}")
+    print(f"RBM False Positives: {rbm_false_positives}")
+
     num_hidden2 = 200
     dbn = DBN(rbm, num_hidden2, device=device)
     dbn_checkpoint = torch.load('../models/dbn.th', map_location=device, weights_only=False)
@@ -71,34 +86,6 @@ def main():
 
     dbn.eval()
 
-    # Select a random user for testing
-    np.random.seed(42)
-    user_idx = np.random.choice(len(test_data))
-
-    # Mask half of their rated movies
-    masked_data = test_data.clone()
-
-    # Get rated movies (entire row for the selected user)
-    rated_movies = np.where(test_data[user_idx, 0::2].numpy() == 1)[0]  # Get rated movies (first bit)
-
-    num_to_mask = len(rated_movies) // 2  # Mask half of the rated movies
-    masked_movies = np.random.choice(rated_movies, num_to_mask, replace=False)
-
-    # Masking rated and liked bits (first and second columns)
-    for movie_idx in masked_movies:
-        # Mask the rated and liked bit (corresponding bits for the movie)
-        masked_data[user_idx, movie_idx * 2:movie_idx * 2 + 2] = 0
-
-    # Ensure no unintended dimension changes after masking
-    print(masked_data.shape)
-
-    # Evaluate the model (RBM first)
-    print("Evaluating RBM:")
-    rbm_true_positives, rbm_false_positives = evaluate_recommendations(rbm, user_idx, test_data, masked_data, top_k=10)
-    print(f"RBM True Positives: {rbm_true_positives}")
-    print(f"RBM False Positives: {rbm_false_positives}")
-
-    # Evaluate the model (DBN second)
     print("\nEvaluating DBN:")
     dbn_true_positives, dbn_false_positives = evaluate_recommendations(dbn, user_idx, test_data, masked_data, top_k=10)
     print(f"DBN True Positives: {dbn_true_positives}")
