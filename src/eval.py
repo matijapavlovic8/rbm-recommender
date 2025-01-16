@@ -24,11 +24,7 @@ def evaluate_rbm(rbm, test_data, device, k=10):
             user_vector = user_vector.float().to(device)
             v0 = user_vector.clone().to(device)
             
-            h_prob_pos, h_sample_pos = rbm.forward(v0)
-            h_sample_current = h_sample_pos
-            for _ in range(k):
-                v_prob_neg, v_sample_neg = rbm.backward(h_sample_current)
-                h_prob_neg, h_sample_current = rbm.forward(v_sample_neg)
+            v_prob_neg, v_sample_neg = rbm.reconstruct(v0, k=k)
             
             vk = quantize(v_prob_neg)
 
@@ -65,13 +61,8 @@ def evaluate_dbn(dbn, test_data, device, k=10):
         for user_vector in test_data:
             user_vector = user_vector.float().to(device)
             v0 = user_vector.clone().to(device)
-            h_prob1_up, h_sample1_up, h_prob2_up, h_sample2_up = dbn.forward(v0)
-            h_sample2_down = h_sample2_up.clone()
-            for _ in range(k):
-                h_prob1_down, h_sample1_down = dbn.rbm2.backward(h_sample2_down)
-                h_prob2_down, h_sample2_down = dbn.rbm2.forward(h_sample1_down)
             
-            v_prob_down, v_sample_down = dbn.rbm1.backward(h_sample1_down)
+            v_prob_down, v_sample_down = dbn.reconstruct(v0, k=k)
 
             vk = quantize(v_prob_down)
 

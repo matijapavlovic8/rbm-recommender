@@ -5,10 +5,10 @@ from src.training import train_rbm, train_dbn
 from src.plot_utils import plot_training_loss
 from sklearn.model_selection import train_test_split
 import torch
-from src.utils import test_recommendation_ability, movie_from_tensor, recommend
+from src.utils import test_recommendation_ability, movie_from_tensor, recommend, set_global_seed
 import random
 
-
+set_global_seed(42)
 
 def main():
     file_path = "../data/ml-100k/u.data"
@@ -25,12 +25,12 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     num_visible = interaction_tensor.shape[1]
-    num_hidden = 500
+    num_hidden = 200
 
     # RBM
     rbm = RBM(num_visible=num_visible, num_hidden=num_hidden, device=device)
 
-    losses = train_rbm(rbm, train_data, epochs=50, learning_rate=0.01, batch_size=16)
+    losses = train_rbm(rbm, train_data, epochs=40, learning_rate=0.01, batch_size=16)
 
     with open('../models/rbm.th', 'wb') as f:
         torch.save({
@@ -47,10 +47,6 @@ def main():
     print(f"Validation loss: {loss:.4f}")
     print(f"Validation accuracy: {acc*100:.2f}%")
 
-    hide_fraction = 0.2  # Hide 20% of rated movies
-    accuracy = test_recommendation_ability(rbm, test_data, device, hide_fraction=hide_fraction, k=10)
-    print(f"Recommendation accuracy: {accuracy*100:.2f}%")
-
     
     # DBN
     rbm_for_dbn = RBM.load_from_files("../models/rbm.th", device=device)
@@ -58,7 +54,7 @@ def main():
     num_hidden2 = 200
     dbn = DBN(rbm_for_dbn, num_hidden2, device=device)
 
-    losses = train_dbn(dbn, train_data, epochs=20, learning_rate=0.01, batch_size=32)
+    losses = train_dbn(dbn, train_data, epochs=40, learning_rate=0.01, batch_size=16)
     
     with open('../models/dbn.th', 'wb') as f:
         torch.save({
@@ -80,31 +76,32 @@ def main():
 
 
     hide_fraction = 0.2  # Hide 20% of rated movies
-    accuracy = test_recommendation_ability(dbn, test_data, device, hide_fraction=hide_fraction, k=10)
-    print(f"Recommendation accuracy: {accuracy*100:.2f}%")
+    accuracy_rbm, accuracy_dbn = test_recommendation_ability(rbm, dbn, test_data, device, hide_fraction=hide_fraction, k=10)
+    print(f"RBM Recommendation accuracy: {accuracy_rbm*100:.2f}%")
+    print(f"DBN Recommendation accuracy: {accuracy_dbn*100:.2f}%")
 
-    movies = load_movies("data\\ml-100k\\u.item")
-    random_user = random.randint(1, len(test_data))
-    rates = test_data[random_user]
-    movie_from_tensor(rates, movies)
+    # movies = load_movies("data\\ml-100k\\u.item")
+    # random_user = random.randint(1, len(test_data))
+    # rates = test_data[random_user]
+    # movie_from_tensor(rates, movies)
 
-    _,h = rbm_for_dbn.forward(rates)
-    probs, v = rbm_for_dbn.backward(h)
+    # _,h = rbm_for_dbn.forward(rates)
+    # probs, v = rbm_for_dbn.backward(h)
 
-    watched = torch.zeros_like(rates)
-    watched[rates != 0] = 1
-    to_recommend = recommend(watched, probs, 5)
-    movie_from_tensor(to_recommend.cpu(), movies)
+    # watched = torch.zeros_like(rates)
+    # watched[rates != 0] = 1
+    # to_recommend = recommend(watched, probs, 5)
+    # movie_from_tensor(to_recommend.cpu(), movies)
 
-    h_prob1_up, h_sample1_up, h_prob2_up, h_sample2_up = dbn.forward(watched)
-    h_sample2_down = h_sample2_up.clone()
-    for _ in range(1):
-        h_prob1_down, h_sample1_down = dbn.rbm2.backward(h_sample2_down)
-        h_prob2_down, h_sample2_down = dbn.rbm2.forward(h_sample1_down)
+    # h_prob1_up, h_sample1_up, h_prob2_up, h_sample2_up = dbn.forward(watched)
+    # h_sample2_down = h_sample2_up.clone()
+    # for _ in range(1):
+    #     h_prob1_down, h_sample1_down = dbn.rbm2.backward(h_sample2_down)
+    #     h_prob2_down, h_sample2_down = dbn.rbm2.forward(h_sample1_down)
 
-    probs, v = dbn.rbm1.backward(h_sample1_down)
-    to_recommend = recommend(watched, probs, 5)
-    movie_from_tensor(to_recommend.cpu(), movies)
+    # probs, v = dbn.rbm1.backward(h_sample1_down)
+    # to_recommend = recommend(watched, probs, 5)
+    # movie_from_tensor(to_recommend.cpu(), movies)
 
 
 
