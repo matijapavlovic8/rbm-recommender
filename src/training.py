@@ -3,11 +3,12 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch.utils.data
 from tqdm import tqdm
+from src.utils import quantize
 
 
 def train_rbm(rbm, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
     """
-    Training loop with mini-batching, TQDM progress tracking
+    Training loop with mini-batching, focusing updates only on rated movies.
 
     Args:
         rbm: RBM model
@@ -25,28 +26,28 @@ def train_rbm(rbm, data, epochs=20, learning_rate=0.001, k=10, batch_size=32):
 
     for epoch in range(epochs):
         epoch_loss = 0.0
-        progress_bar = tqdm(data_loader, desc=f"Epoch {epoch}/{epochs}", leave=True)
+        progress_bar = tqdm(data_loader, desc=f"Epoch {epoch + 1}/{epochs}", leave=True)
 
         for batch in progress_bar:
             batch = batch.to(device)
 
             h_prob_pos, h_sample_pos = rbm.forward(batch)
-
             h_sample_current = h_sample_pos
             for _ in range(k):
                 v_prob_neg, v_sample_neg = rbm.backward(h_sample_current)
                 h_prob_neg, h_sample_current = rbm.forward(v_sample_neg)
 
-            loss = F.mse_loss(batch, v_sample_neg)
+            v_prob_neg_q = quantize(v_prob_neg)
+            loss = F.mse_loss(batch, v_prob_neg_q)
             epoch_loss += loss.item()
 
             positive_grad = torch.matmul(h_sample_pos.t(), batch)
-            negative_grad = torch.matmul(h_sample_current.t(), v_sample_neg)
+            negative_grad = torch.matmul(h_sample_current.t(), v_sample_neg)  # probaj sa prob ili quant
 
             dw = (positive_grad - negative_grad) / batch.size(0)
             rbm.W = rbm.W + learning_rate * dw
-            rbm.v_bias = rbm.v_bias + learning_rate * (torch.mean(batch - v_sample_neg, dim=0))
-            rbm.h_bias = rbm.h_bias + learning_rate * (torch.mean(h_sample_pos - h_sample_current, dim=0))
+            rbm.v_bias = rbm.v_bias + learning_rate * torch.mean(batch - v_sample_neg, dim=0)   # probaj sa prob ili quant
+            rbm.h_bias = rbm.h_bias + learning_rate * torch.mean(h_sample_pos - h_sample_current, dim=0)
 
             progress_bar.set_postfix({'Loss': loss.item()})
 
