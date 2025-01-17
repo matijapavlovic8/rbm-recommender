@@ -45,8 +45,9 @@ def movie_from_tensor(tensor, movies):
         - tensor: binary tensor with movies
         - movies: dataframe containing movie info
     """
+    tensor = quantize(tensor.clone())
     indices = torch.nonzero(tensor >= 0.6).squeeze()
-    if len(indices) == 0:
+    if indices.numel() == 0: 
         print("No recommendations.")
         return
 
@@ -117,8 +118,7 @@ def test_recommendation_ability(rbm, dbn, data, device, hide_fraction=0.2, k=1):
                     if user_vector[r] >= 0.6:
                         correct_top_n_rbm += 1
                     total_top_n_rbm += 1
-
-                    
+    
             v_sample_down = dbn.reconstruct(test_vector, k=k)
             predictions = quantize(v_sample_down.clone())
 
@@ -170,3 +170,4 @@ def set_global_seed(seed):
     # Enable deterministic behavior in PyTorch (if required)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+           
