@@ -94,8 +94,10 @@ def test_recommendation_ability(rbm, dbn, data, device, hide_fraction=0.2, k=1):
             if len(rated_indices) < 30:
                 continue
 
-            num_to_hide = max(1, int(len(rated_indices) * hide_fraction))
-            hidden_indices = rated_indices[torch.randperm(len(rated_indices))[:num_to_hide]]
+            liked = torch.where(user_vector >= 0.6)[0]
+
+            num_to_hide = max(1, int(len(liked) * hide_fraction))
+            hidden_indices = liked[torch.randperm(len(liked))[:num_to_hide]]
 
             test_vector = user_vector.clone()
             test_vector[hidden_indices] = 0  # Hide selected ratings
@@ -107,17 +109,17 @@ def test_recommendation_ability(rbm, dbn, data, device, hide_fraction=0.2, k=1):
 
             top_n = num_to_hide
 
-            v_sample_down = rbm.reconstruct(test_vector, k=k)
-            predictions = quantize(v_sample_down.clone())
-
-            recommendations = recommend(filtered_watched, predictions, top_n)
-            recomm_indices = torch.where(recommendations == 1)[0]
-
-            for r in recomm_indices:
-                if r in hidden_indices:
-                    if user_vector[r] >= 0.6:
-                        correct_top_n_rbm += 1
-                    total_top_n_rbm += 1
+            # v_sample_down = rbm.reconstruct(test_vector, k=k)
+            # predictions = quantize(v_sample_down.clone())
+            #
+            # recommendations = recommend(filtered_watched, predictions, top_n)
+            # recomm_indices = torch.where(recommendations == 1)[0]
+            #
+            # for r in recomm_indices:
+            #     if r in hidden_indices:
+            #         if user_vector[r] >= 0.6:
+            #             correct_top_n_rbm += 1
+            #         total_top_n_rbm += 1
     
             v_sample_down = dbn.reconstruct(test_vector, k=k)
             predictions = quantize(v_sample_down.clone())
