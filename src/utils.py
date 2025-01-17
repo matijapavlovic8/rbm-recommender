@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 
 def recommend(watched, probs, n):
     """
@@ -44,8 +45,9 @@ def movie_from_tensor(tensor, movies):
         - tensor: binary tensor with movies
         - movies: dataframe containing movie info
     """
+    tensor = quantize(tensor.clone())
     indices = torch.nonzero(tensor >= 0.6).squeeze()
-    if len(indices) == 0:
+    if indices.numel() == 0: 
         print("No recommendations.")
         return
 
@@ -105,8 +107,8 @@ def test_recommendation_ability(rbm, dbn, data, device, hide_fraction=0.2, k=1):
 
             top_n = num_to_hide
 
-            v_prob_down, v_sample_down = rbm.reconstruct(test_vector, k=k)
-            predictions = quantize(v_prob_down.clone())
+            v_sample_down = rbm.reconstruct(test_vector, k=k)
+            predictions = quantize(v_sample_down.clone())
 
             recommendations = recommend(filtered_watched, predictions, top_n)
             recomm_indices = torch.where(recommendations == 1)[0]
@@ -116,10 +118,9 @@ def test_recommendation_ability(rbm, dbn, data, device, hide_fraction=0.2, k=1):
                     if user_vector[r] >= 0.6:
                         correct_top_n_rbm += 1
                     total_top_n_rbm += 1
-
-                    
-            v_prob_down, v_sample_down = dbn.reconstruct(test_vector, k=k)
-            predictions = quantize(v_prob_down.clone())
+    
+            v_sample_down = dbn.reconstruct(test_vector, k=k)
+            predictions = quantize(v_sample_down.clone())
 
             recommendations = recommend(filtered_watched, predictions, top_n)
             recomm_indices = torch.where(recommendations == 1)[0]
@@ -169,3 +170,4 @@ def set_global_seed(seed):
     # Enable deterministic behavior in PyTorch (if required)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+           

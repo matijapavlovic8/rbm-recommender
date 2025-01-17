@@ -1,7 +1,6 @@
 from src.eval import evaluate_rbm, evaluate_dbn
 from src.data_preprocessing import load_data, preprocess_data, load_movies
-from src.models import RBM, DBN
-from src.training import train_rbm, train_dbn
+from src.models import GaussianBernoulliRBM, DBN
 from src.plot_utils import plot_training_loss
 from sklearn.model_selection import train_test_split
 import torch
@@ -17,7 +16,7 @@ def main():
 
     interaction_tensor = torch.tensor(interaction_matrix.values, dtype=torch.float32)
 
-    train_data, test_data = train_test_split(interaction_tensor.numpy(), test_size=0.2, random_state=42)
+    train_data, test_data = train_test_split(interaction_tensor.numpy(), test_size=0.3, random_state=42)
 
     train_data = torch.tensor(train_data, dtype=torch.float32)
     test_data = torch.tensor(test_data, dtype=torch.float32)
@@ -25,12 +24,12 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     num_visible = interaction_tensor.shape[1]
-    num_hidden = 200
+    num_hidden = 300
 
     # RBM
-    rbm = RBM(num_visible=num_visible, num_hidden=num_hidden, device=device)
+    rbm = GaussianBernoulliRBM(num_visible=num_visible, num_hidden=num_hidden, device=device, sigma=0.1)
 
-    losses = train_rbm(rbm, train_data, epochs=40, learning_rate=0.01, batch_size=16)
+    losses = rbm.train_rbm(train_data, batch_size=16, epochs=70, learning_rate=0.002, device=device)
 
     with open('../models/rbm.th', 'wb') as f:
         torch.save({
@@ -38,7 +37,8 @@ def main():
             'rbm_v': rbm.v_bias,
             'rbm_h': rbm.h_bias,
            'num_hidden': num_hidden,
-            'num_visible': num_visible
+            'num_visible': num_visible,
+            'sigma': rbm.sigma
         }, f)
 
     plot_training_loss(losses, title="RBM Training Reconstruction Loss", xlabel="Epoch", ylabel="Reconstruction Loss")
@@ -47,43 +47,25 @@ def main():
     print(f"Validation loss: {loss:.4f}")
     print(f"Validation accuracy: {acc*100:.2f}%")
 
-    
-    # DBN
-    rbm_for_dbn = RBM.load_from_files("../models/rbm.th", device=device)
-    
+
+    # DBN 
     num_hidden2 = 200
-    dbn = DBN(rbm_for_dbn, num_hidden2, device=device)
+    rbm_layers = [num_visible, num_hidden, num_hidden2]
+    dbn = DBN(rbm_layers, rbm_path='../models/rbm.th', device=device)
 
-    losses = train_dbn(dbn, train_data, epochs=40, learning_rate=0.01, batch_size=16)
+    dbn.pretrain(train_data, epochs=[60,60], learning_rate=[0.03, 0.003], batch_size=16, device=device)
     
-    with open('../models/dbn.th', 'wb') as f:
-        torch.save({
-            'rbm1_w': dbn.rbm1.W,
-            'rbm1_v': dbn.rbm1.v_bias,
-            'rbm1_h': dbn.rbm1.h_bias,
-            'rbm2_w': dbn.rbm2.W,
-            'rbm2_v': dbn.rbm2.v_bias,
-            'rbm2_h': dbn.rbm2.h_bias,
-            'num_hidden1': dbn.rbm1.num_hidden,
-            'num_hidden2': dbn.rbm2.num_hidden,
-        }, f)
-
-    plot_training_loss(losses, title="DBN Training Reconstruction Loss", xlabel="Epoch", ylabel="Reconstruction Loss")
+    DBN.save_dbn(dbn, '../models/dbn.th')
 
     loss, acc = evaluate_dbn(dbn, test_data, device)
     print(f"Validation loss: {loss:.4f}")
     print(f"Validation accuracy: {acc*100:.2f}%")
 
 
-    hide_fraction = 0.2  # Hide 20% of rated movies
-    acc_rbm = 0
-    acc_dbn = 0
-    for i in range(10):
-        accuracy_rbm, accuracy_dbn = test_recommendation_ability(rbm, dbn, test_data, device, hide_fraction=hide_fraction, k=10)
-        acc_rbm += accuracy_rbm
-        acc_dbn += accuracy_dbn
-    print(f"RBM Recommendation accuracy: {acc_rbm/10*100:.2f}%")
-    print(f"DBN Recommendation accuracy: {acc_dbn/10*100:.2f}%")
+    hide_fraction = 0.3  # Hide 30% of rated movies
+    accuracy_rbm, accuracy_dbn = test_recommendation_ability(rbm, dbn, test_data, device, hide_fraction, k=10)
+    print(f"RBM Recommendation accuracy: {accuracy_rbm*100:.2f}%")
+    print(f"DBN Recommendation accuracy: {accuracy_dbn*100:.2f}%")
 
     # movies = load_movies("data\\ml-100k\\u.item")
     # random_user = random.randint(1, len(test_data))

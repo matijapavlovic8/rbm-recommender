@@ -1,10 +1,10 @@
 import torch
 import torch.nn.functional as F
 from src.utils import quantize
-from src.models import RBM, DBN
+from src.models import GaussianBernoulliRBM, DBN
 
 
-def evaluate_rbm(rbm: RBM, test_data, device, k=10):
+def evaluate_rbm(rbm: GaussianBernoulliRBM, test_data, device, k=10):
     """
     Evaluate the RBM on the test set by calculating the
     reconstruction loss and accuracy.
@@ -25,9 +25,9 @@ def evaluate_rbm(rbm: RBM, test_data, device, k=10):
             user_vector = user_vector.float().to(device)
             v0 = user_vector.clone().detach().to(device)
             
-            v_prob_neg, v_sample_neg = rbm.reconstruct(v0, k=k)
+            v_sample_neg = rbm.reconstruct(v0, k=k)
             
-            vk = quantize(v_prob_neg)
+            vk = quantize(v_sample_neg)
 
             equal_elements = (v0 == vk)
             num_equal = equal_elements.sum().item()
@@ -63,9 +63,9 @@ def evaluate_dbn(dbn: DBN, test_data, device, k=10):
             user_vector = user_vector.float().to(device)
             v0 = user_vector.clone().detach().to(device)
             
-            v_prob_down, v_sample_down = dbn.reconstruct(v0, k=k)
+            v_sample_down = dbn.reconstruct(v0, k=k)
 
-            vk = quantize(v_prob_down)
+            vk = quantize(v_sample_down)
 
             equal_elements = (v0 == vk)
             num_equal = equal_elements.sum().item()
